@@ -1,0 +1,76 @@
+---
+defaults: &defaults
+  working_directory: /pong-verticle-demo
+  environment:
+    IMAGE_NAME: pong-verticle
+    GOOGLE_PROJECT_NAME_DEVELOPMENT: mycujoo-ping-pong-demo # original name is hidden #
+      GOOGLE_CLUSTER_NAME_DEVELOPMENT: mycujoo-ping-pong-demo # original name is hidden #
+      GOOGLE_COMPUTE_ZONE_DEVELOPMENT: mycujoo-ping-pong-demo # original name is hidden #
+
+    DEBIAN_FRONTEND: noninteractive
+    VERSION: 1.0
+
+version: 2
+jobs:
+  build_profile_service:
+    <<: *defaults
+
+    docker:
+      - image: mycujoo/java-docker
+
+    steps:
+      - checkout
+      - setup_remote_docker
+
+      - run:
+          name: Configure environment
+          command: |
+            chmod +x configure.sh
+            ./configure.sh
+
+      - run:
+          name: Docker login
+          command: |
+            docker login -u _json_key -p "$(cat /root/gcp-key.json)" https://eu.gcr.io
+
+      - run:
+          name: Install Kube-deploy
+          command: |
+            wget https://s3.eu-central-1.amazonaws.com/binary-distribution/kube-deploy-linux-amd64 -O /usr/local/bin/kube-deploy
+            chmod +x /usr/local/bin/kube-deploy
+
+      - run:
+          name: Install vault CLI
+          command: curl -fL https://releases.hashicorp.com/vault/1.0.0/vault_1.0.0_linux_amd64.zip --output ./vault.zip && unzip ./vault.zip && cp ./vault /usr/local/bin
+
+      - run:
+          name: vault login
+          command: vault login $VAULT_TOKEN
+
+      - run:
+          name: Download Consult Template
+          command: |
+            curl -O https://releases.hashicorp.com/consul-template/0.19.5/consul-template_0.19.5_linux_amd64.tgz && tar -C /usr/local/bin -xf consul-template_0.19.5_linux_amd64.tgz
+
+      ### kube-deploy steps start ###
+      - run:
+          name: Build and Push Profile Kubernetes Image
+          command: |
+            kube-deploy build --force-push-image --override-dirty-workdir
+
+      - run:
+          name: Deploy Profile Kubernetes Image
+          command: |
+            kube-deploy start-rollout --no-canary
+
+workflows:
+  version: 2
+  build_test_deploy:
+    jobs:
+    - build_profile_service:
+        context: ping-pong-conference-talk
+        filters:
+          branches:
+            only:
+            - node2
+            - node1
