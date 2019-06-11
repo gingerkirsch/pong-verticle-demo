@@ -5,7 +5,7 @@ Distributed, clusterized, shipped as Docker images, deployed to Kubernetes, with
 
 Parts of the project:
 1) ping-verticle-demo (Java)
-A GrapQL endpoint that sends "ping" to Vert.x event bus via POST on https://<host>/graphql with following JSON body:
+A GraphQL endpoint that sends "ping" to Vert.x event bus via POST on https://<host>/graphql with following JSON body:
 
 {
 	"query": "query($secure: Boolean) { ping(secureOnly: $secure) }",
